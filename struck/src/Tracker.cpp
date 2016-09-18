@@ -288,6 +288,7 @@ void Tracker::UpdateLearner(const ImageRep& image)
         {
         	
         	trainingLogFile << "    @MultiSameple sample(image, keptRects) .."<< endl;
+		trainingLogFile << "    ==========================Gate of LaRank -> .." << endl;
 		trainingLogFile << "    @m_pLearner->Update(smaple, 0) .." << endl;
         }
 	m_pLearner->Update(sample, 0);

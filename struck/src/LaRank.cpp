@@ -128,7 +128,7 @@ void LaRank::Update(const MultiSample& sample, int y)
 {
 	if (trainingLogFile)
 	{
-		trainingLogFile << "  @LaRank::Update(const MultiSample& smaple, int y)" << endl;
+		trainingLogFile << "    @LaRank::Update(const MultiSample& smaple, int y)" << endl;
 	}
 	// add new support pattern
 	SupportPattern* sp = new SupportPattern;
@@ -136,9 +136,9 @@ void LaRank::Update(const MultiSample& sample, int y)
 	FloatRect centre = rects[y];
 	if (trainingLogFile)
 	{
-		trainingLogFile << "    ->Get the center sample: " << centre << endl;
-		trainingLogFile << "    ->Get the 'rect - center' and put them into 'sp' .. " << endl;
-		trainingLogFile << "    ->Number of rects: rects.size() = " << rects.size() << endl;
+		trainingLogFile << "      ->Get the center sample: " << centre << endl;
+		trainingLogFile << "      ->Get the 'rect - center' and put them into 'sp' .. " << endl;
+		trainingLogFile << "      ->Number of rects: rects.size() = " << rects.size() << endl;
 	}
 
 	for (int i = 0; i < (int)rects.size(); ++i)
@@ -159,9 +159,9 @@ void LaRank::Update(const MultiSample& sample, int y)
 	}
 	if (trainingLogFile)
 	{
-		trainingLogFile << "      sp = " << sp << endl; //": This is one support pattern." << endl;
-		trainingLogFile << "      SupportPattern* sp; sp->x; sp->yv; sp->images; sp->refCount." << std::endl;
-		trainingLogFile << "    @const_cast<Features&>(m_features).Eval(sample, sp->x) :fea->sp.x" << endl; 
+		trainingLogFile << "        sp = " << sp << endl; //": This is one support pattern." << endl;
+		trainingLogFile << "        SupportPattern* sp; sp->x; sp->yv; sp->images; sp->refCount." << std::endl;
+		trainingLogFile << "        @const_cast<Features&>(m_features).Eval(sample, sp->x) :fea->sp.x" << endl; 
 	}
 
 	// evaluate features for each sample
@@ -171,10 +171,10 @@ void LaRank::Update(const MultiSample& sample, int y)
 	sp->refCount = 0;
 	m_sps.push_back(sp);
 	if (trainingLogFile) {
-		trainingLogFile << "      SupportPattern* sp; sp->x: the (haar) feature of each rect." << endl;
-		trainingLogFile << "      SupportPattern* sp; sp->y: the index of each rect." << endl;
-		trainingLogFile << "      The number of svs of this sp: sp->refCount = " << sp->refCount << endl;
-		trainingLogFile << "      The number of sps: m_sps.size()=" << m_sps.size() << endl;
+		trainingLogFile << "          SupportPattern* sp; sp->x: the (haar) feature of each rect." << endl;
+		trainingLogFile << "          SupportPattern* sp; sp->y: the index of each rect." << endl;
+		trainingLogFile << "          The number of svs of this sp: sp->refCount = " << sp->refCount << endl;
+		trainingLogFile << "          The number of sps: m_sps.size()=" << m_sps.size() << endl;
 	}
 
 	if (trainingLogFile) {
