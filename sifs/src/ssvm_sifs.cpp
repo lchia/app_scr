@@ -71,7 +71,6 @@ ssvm_sifs::ssvm_sifs(const std::string& input_fn,
         std::cout << "beta >= beta_max: always have naive solutions" << std::endl;
     }
 
-
     trainingLogFile << "   =>A03: Compute S_{\beta}(..)" << endl; 
     Eigen::ArrayXd temp =
         (one_over_XTones_ > beta_).select(one_over_XTones_ - beta_, 0.0) +

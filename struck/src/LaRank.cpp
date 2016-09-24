@@ -36,6 +36,7 @@
 #include "GraphUtils/GraphUtils.h"
 
 #include <Eigen/Core>
+#include <Eigen/SparseCore>
 
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -45,7 +46,7 @@ static const int kTileSize = 30;
 using namespace cv;
 
 using namespace std;
-using namespace Eigen;
+using namespace Eigen; 
 
 static const int kMaxSVs = 2000; // TODO (only used when no budget)
 
@@ -92,6 +93,17 @@ double LaRank::Evaluate(const Eigen::VectorXd& x, const FloatRect& y) const
 	return f;
 }
 
+double LaRank::Evaluate_tmp(const Eigen::VectorXd& x, const FloatRect& y) const
+{
+	double f = 0.0;
+	for (int i = 0; i < (int)m_svs_tmp.size(); ++i)
+	{
+		const SupportVector& sv = *m_svs_tmp[i]; 
+		f += sv.b*m_kernel.Eval(x, sv.x->x[sv.y]);
+	}
+	return f;
+}
+
 void LaRank::Eval(const MultiSample& sample, std::vector<double>& results)
 {
 	const FloatRect& centre(sample.GetRects()[0]);
@@ -99,20 +111,19 @@ void LaRank::Eval(const MultiSample& sample, std::vector<double>& results)
 	const_cast<Features&>(m_features).Eval(sample, fvs);
 	results.resize(fvs.size());
 	if (trainingLogFile) {
-		trainingLogFile << "      @Eval()" << endl;
-		trainingLogFile << "      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << endl;
-		trainingLogFile << "        LaRank::Eval(sample, results) " << endl;
-		trainingLogFile << "          fvs.size() = " << (int)fvs.size() << endl;
-		trainingLogFile << "          sample.GetRects().size() = " << sample.GetRects().size() << endl;
+		trainingLogFile << "  @Eval()" << endl;
+		trainingLogFile << "  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << endl;
+		trainingLogFile << "  LaRank::Eval(sample, results) " << endl;
+		trainingLogFile << "    fvs.size() = " << (int)fvs.size() << endl;
+		trainingLogFile << "    sample.GetRects().size() = " << sample.GetRects().size() << endl;
 	}
-	for (int i = 0; i < (int)fvs.size(); ++i)
-	{
+	for (int i = 0; i < (int)fvs.size(); ++i) {
 		// express y in coord frame of centre sample
 		FloatRect y(sample.GetRects()[i]);
 		y.Translate(-centre.XMin(), -centre.YMin());
 
 		if (trainingLogFile && i%10000==0) {
-			trainingLogFile << "	  ===============Gate of compute score: " << std::endl;
+			trainingLogFile << "    ********************Gate of compute score: " << std::endl;
 			trainingLogFile << "	  >fvs[" << i << "].size(): " << fvs[i].size() << std::endl;
 			trainingLogFile << "	  >y: " << y << std::endl;
 		}
@@ -120,29 +131,26 @@ void LaRank::Eval(const MultiSample& sample, std::vector<double>& results)
 	}
 	if (trainingLogFile) {
 		trainingLogFile << "	  >results.size() = " << results.size() << endl;
-		trainingLogFile << "    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << endl;
+		trainingLogFile << "  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << endl;
 	}
 }
 
 void LaRank::Update(const MultiSample& sample, int y)
 {
-	if (trainingLogFile)
-	{
+	if (trainingLogFile) {
 		trainingLogFile << "    @LaRank::Update(const MultiSample& smaple, int y)" << endl;
 	}
 	// add new support pattern
 	SupportPattern* sp = new SupportPattern;
 	const vector<FloatRect>& rects = sample.GetRects();
 	FloatRect centre = rects[y];
-	if (trainingLogFile)
-	{
+	if (trainingLogFile) {
 		trainingLogFile << "      ->Get the center sample: " << centre << endl;
 		trainingLogFile << "      ->Get the 'rect - center' and put them into 'sp' .. " << endl;
 		trainingLogFile << "      ->Number of rects: rects.size() = " << rects.size() << endl;
 	}
 
-	for (int i = 0; i < (int)rects.size(); ++i)
-	{
+	for (int i = 0; i < (int)rects.size(); ++i) {
 		// express r in coord frame of centre sample
 		FloatRect r = rects[i];
 		r.Translate(-centre.XMin(), -centre.YMin());
@@ -157,8 +165,7 @@ void LaRank::Update(const MultiSample& sample, int y)
 			sp->images.push_back(im);
 		}
 	}
-	if (trainingLogFile)
-	{
+	if (trainingLogFile) {
 		trainingLogFile << "        sp = " << sp << endl; //": This is one support pattern." << endl;
 		trainingLogFile << "        SupportPattern* sp; sp->x; sp->yv; sp->images; sp->refCount." << std::endl;
 		trainingLogFile << "        @const_cast<Features&>(m_features).Eval(sample, sp->x) :fea->sp.x" << endl; 
@@ -174,38 +181,90 @@ void LaRank::Update(const MultiSample& sample, int y)
 		trainingLogFile << "          SupportPattern* sp; sp->x: the (haar) feature of each rect." << endl;
 		trainingLogFile << "          SupportPattern* sp; sp->y: the index of each rect." << endl;
 		trainingLogFile << "          The number of svs of this sp: sp->refCount = " << sp->refCount << endl;
-		trainingLogFile << "          The number of sps: m_sps.size()=" << m_sps.size() << endl;
+		trainingLogFile << "          The number of sps: m_sps.size()=" << m_sps.size() << std::endl;	
 	}
 
-	if (trainingLogFile) {
-		trainingLogFile << "*****************************************************************************" << endl;
-		trainingLogFile << "** This is the gate of 'screening'. Inputs: sp. 			   **" << endl;
-		trainingLogFile << "*****************************************************************************" << endl;
-		trainingLogFile << "+  ProcessNew(" << (int)m_sps.size()-1 << ")" << endl;
+	/**************************************************************************
+	 ***	Gate of Screening, Gate of Screening, Gate of Screening 	*** 	 
+	/**************************************************************************/
+	//Put new rects into svs
+	trainingLogFile << "Update: Adding all svs of sp[" << (int)m_sps.size()-1 << "]: ";
+	for (int i = 0; i < (int)sp->yv.size(); i++)
+	{
+		double grad = -Loss(sp->yv[i], sp->yv[sp->y]) - Evaluate_tmp(sp->x[i], sp->yv[i]);
+		int in = AddSupportVector_tmp(sp, i, grad);
+		if (i%20==0) 
+		{
+			trainingLogFile << in << ",";
+		}
 	}
-	ProcessNew((int)m_sps.size()-1);
+	trainingLogFile << std::endl << "m_svs: " << m_svs_tmp.size() << std::endl; 
+ 
+	//Put all the new rects and existing svs together -> X_, D_
+	X_.resize((int)m_svs_tmp.size(), (int)m_svs_tmp.size());
+	D_.resize((int)m_svs_tmp.size(), (int)m_svs_tmp.size());
+	for (int i = 0; i < (int)m_svs_tmp.size(); ++i)
+	{
+		const SupportVector* svi = m_svs_tmp[i];
+		//trainingLogFile << "verify: [sv->y, sv->x->y] = [" << svi->y << "," << svi->x->y << "]." << std::endl;
+		for (int j = 0; j < (int)m_svs.size(); ++j)
+		{	
+			const SupportVector* svj = m_svs_tmp[j];
+ 			
+			X_.insert(i,j) = Evaluate(svi->x->x[svi->y], svi->x->yv[svi->y]) - Evaluate(svi->x->x[svi->y], svj->x->yv[svj->y]);
+			D_.insert(i,j) = Loss(svi->x->yv[svi->y], svj->x->yv[svj->y]);
+		}
+	} 
+	X_.makeCompressed();
+
+	s3ifs(X_, D_);
+
+
+
 
 	if (trainingLogFile) {
-	   trainingLogFile << "#  LaRank::Budgetmaintenance() -> [" << (int)m_sps.size()-1
-			   << ", " << m_config.svmBudgetSize << "]" << std::endl;
+		trainingLogFile << "          *************************Gate of 'screening'. " << endl;
+		trainingLogFile << "          	=>Generate X_: [" << (int)m_svs_tmp.size() << "," << (int)m_svs_tmp.size() << "]" << endl;
+		trainingLogFile << "          	=>Generate D_: [" << (int)m_svs_tmp.size() << "," << (int)m_svs_tmp.size() << "]" << endl;
+	}  
+
+	//ProcessNew
+	if (trainingLogFile) { 
+
+		trainingLogFile << "          *************************Gate of 'screening'. " << endl; 
+
+		trainingLogFile << "            +  ProcessNew(" << (int)m_sps.size()-1 << ")" << endl;
+
 	}
+	ProcessNew((int)m_sps.size()-1); 
+
+
+	if (trainingLogFile) {
+
+		trainingLogFile << "            ###LaRank::Budgetmaintenance() -> [" << (int)m_sps.size()-1
+
+				<< ", " << m_config.svmBudgetSize << "]" << std::endl;
+
+	}
+
 	BudgetMaintenance();
-	
 
+	/**
 	if (trainingLogFile) {
-		trainingLogFile << "*  10 'ReProcess() + Budgetmaintenance()'.." << endl;
-		trainingLogFile << "     >> 1 Reprocess = 1 ProcessOld() + 10 Optimize()"<< endl;
+		trainingLogFile << "            *  10 'ReProcess() + Budgetmaintenance()'.." << endl;
+		trainingLogFile << "               > 1 Reprocess = 1 ProcessOld() + 10 Optimize()"<< endl;
 	}
 	for (int i = 0; i < 10; ++i) {
 		Reprocess();
 		BudgetMaintenance();
 	}
 	if (trainingLogFile) {
-		trainingLogFile << "      The number of svs of this sp: sp->refCount = " << sp->refCount << endl;
-		trainingLogFile << "      The number of sps: m_sps.size()=" << m_sps.size() << endl;
-		trainingLogFile << "==============================================" << endl;
+		trainingLogFile << "               >The number of svs of this sp: sp->refCount = " << sp->refCount << endl;
+		trainingLogFile << "               >The number of sps: m_sps.size()=" << m_sps.size() << endl;
 	}
+	**/
 }
+
 
 void LaRank::BudgetMaintenance()
 {
@@ -257,8 +316,10 @@ void LaRank::SMOStep(int ipos, int ineg)
 	if ((svp->g - svn->g) < 1e-5)
 	{
 #if VERBOSE
+
 		cout << "SMO: skipping" << endl;
-#endif		
+#endif	
+	cout << "SMO: skipping" << endl;	
 	}
 	else
 	{
@@ -276,26 +337,30 @@ void LaRank::SMOStep(int ipos, int ineg)
 			SupportVector* svi = m_svs[i];
 			svi->g -= l*(m_K(i, ipos) - m_K(i, ineg));
 		}
+		cout << "SMO: " << ipos << "," << ineg << " -- " << svp->b << "," << svn->b << " (" << l << ")" << endl;
+		trainingLogFile << "SMO: " << ipos << "," << ineg << " -- " << svp->b << "," << svn->b << " (" << l << ")" << endl;
 #if VERBOSE
 		cout << "SMO: " << ipos << "," << ineg << " -- " << svp->b << "," << svn->b << " (" << l << ")" << endl;
 #endif		
 	}
 	
 	// check if we should remove either sv now
-	
 	if (fabs(svp->b) < 1e-8)
 	{
 		RemoveSupportVector(ipos);
 		if (ineg == (int)m_svs.size())
 		{
+
 			// ineg and ipos will have been swapped during sv removal
 			ineg = ipos;
 		}
+		trainingLogFile << "SMO: Remove 'svp' now, as svp->b = " << svp->b << endl;
 	}
 
 	if (fabs(svn->b) < 1e-8)
 	{
 		RemoveSupportVector(ineg);
+		trainingLogFile << "SMO: Remove 'svn' now, as svn->b = " << svn->b << endl;
 	}
 }
 
@@ -317,10 +382,7 @@ pair<int, double> LaRank::MinGradient(int ind)
 
 void LaRank::ProcessNew(int ind)
 {
-	if (trainingLogFile) {
-		trainingLogFile << "++    ProcessNew(" << ind << ")" << endl;
-		trainingLogFile << "        >> SMOStep(ip, in) ...." << endl;
-	}
+
 	// gradient is -f(x,y) since loss=0
 	int ip = AddSupportVector(m_sps[ind], m_sps[ind]->y, -Evaluate(m_sps[ind]->x[m_sps[ind]->y],m_sps[ind]->yv[m_sps[ind]->y]));
 	pair<int, double> minGrad = MinGradient(ind);
@@ -437,13 +499,50 @@ int LaRank::AddSupportVector(SupportPattern* x, int y, double g)
 	}
 	m_K(ind,ind) = m_kernel.Eval(x->x[y]);
 
-	if ( ! trainingLogFile)
+	if (!trainingLogFile)
 	{
 		trainingLogFile << "@LaRank::AddSupportVector(SupportPattern* x, int y, double g) " << endl; 
 		trainingLogFile << "  1. SupportVector* sv = new SupportVector; sv = (x, y, g); " << endl; 
 		trainingLogFile << "  2. int ind = (int)m_svs.size() =  " << (int)m_svs.size() << endl; 
 		trainingLogFile << "  3. x.refCount++ = " << x->refCount << endl; 
-		trainingLogFile << "  4. update kernel matrix: [ind, ind] " << endl; 
+		trainingLogFile << "  4. update kernel matrix: [" << ind << ", " << ind << "] " << endl; 
+		trainingLogFile << "  5. return ind" << endl; 
+	}
+
+	return ind;
+}
+
+int LaRank::AddSupportVector_tmp(SupportPattern* x, int y, double g)
+{
+	SupportVector* sv = new SupportVector;
+	sv->b = 0.0;
+	sv->x = x;
+	sv->y = y;
+	sv->g = g;
+
+	int ind = (int)m_svs_tmp.size();
+	m_svs_tmp.push_back(sv);
+	x->refCount++;
+
+#if VERBOSE
+	cout << "Adding SV: " << ind << endl;
+#endif
+/**
+	// update kernel matrix
+	for (int i = 0; i < ind; ++i)
+	{
+		m_K_tmp(i,ind) = m_kernel.Eval(m_svs_tmp[i]->x->x[m_svs_tmp[i]->y], x->x[y]);
+		m_K_tmp(ind,i) = m_K_tmp(i,ind);
+	}
+	m_K_tmp(ind,ind) = m_kernel.Eval(x->x[y]);
+**/
+	if (!trainingLogFile)
+	{
+		trainingLogFile << "@LaRank::AddSupportVector(SupportPattern* x, int y, double g) " << endl; 
+		trainingLogFile << "  1. SupportVector* sv = new SupportVector; sv = (x, y, g); " << endl; 
+		trainingLogFile << "  2. int ind = (int)m_svs.size() =  " << (int)m_svs.size() << endl; 
+		trainingLogFile << "  3. x.refCount++ = " << x->refCount << endl; 
+		trainingLogFile << "  4. update kernel matrix: [" << ind << ", " << ind << "] " << endl; 
 		trainingLogFile << "  5. return ind" << endl; 
 	}
 
@@ -471,7 +570,10 @@ void LaRank::RemoveSupportVector(int ind)
 	cout << "Removing SV: " << ind << endl;
 #endif	
 
+
+
 	m_svs[ind]->x->refCount--;
+
 	if (m_svs[ind]->x->refCount == 0)
 	{
 		// also remove the support pattern
@@ -564,7 +666,7 @@ void LaRank::UpdateDebugImage()
 {
 	m_debugImage.setTo(0);
 	
-	int n = (int)m_svs.size();
+	int n = (int)m_svs.size(); //The number of svs
 	
 	if (n == 0) return;
 	
@@ -619,6 +721,7 @@ void LaRank::UpdateDebugImage()
 	if (kernelSize < m_debugImage.cols && kernelSize < m_debugImage.rows)
 	{
 		Mat K = m_debugImage(cv::Rect(m_debugImage.cols-kernelSize, m_debugImage.rows-kernelSize, kernelSize, kernelSize));
+
 		for (int i = 0; i < n; ++i)
 		{
 			for (int j = 0; j < n; ++j)

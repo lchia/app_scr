@@ -30,6 +30,7 @@
 
 #include "Rect.h"
 #include "Sample.h"
+#include "s3ifs.h"
 
 #include <vector>
 #include <Eigen/Core>
@@ -38,11 +39,15 @@
 #include <iostream>
 #include <fstream>
 
+
 class Config;
 class Features;
 class Kernel;
 
 extern std::ofstream trainingLogFile;
+
+using SpMatRd = Eigen::SparseMatrix<double, Eigen::RowMajor>;
+
 
 class LaRank
 {
@@ -54,6 +59,8 @@ public:
 	virtual void Update(const MultiSample& x, int y);
 	
 	virtual void Debug();
+ 	SpMatRd X_;
+ 	SpMatRd D_;
 
 private:
 
@@ -81,11 +88,13 @@ private:
 	
 	std::vector<SupportPattern*> m_sps;
 	std::vector<SupportVector*> m_svs;
+	std::vector<SupportVector*> m_svs_tmp;
 
 	cv::Mat m_debugImage;
 	
 	double m_C;
 	Eigen::MatrixXd m_K;
+	Eigen::MatrixXd m_K_tmp;
 
 	inline double Loss(const FloatRect& y1, const FloatRect& y2) const
 	{
@@ -107,6 +116,7 @@ private:
 	void Optimize();
 
 	int AddSupportVector(SupportPattern* x, int y, double g);
+	int AddSupportVector_tmp(SupportPattern* x, int y, double g);
 	void RemoveSupportVector(int ind);
 	void RemoveSupportVectors(int ind1, int ind2);
 	void SwapSupportVectors(int ind1, int ind2);
@@ -115,6 +125,7 @@ private:
 	void BudgetMaintenanceRemove();
 
 	double Evaluate(const Eigen::VectorXd& x, const FloatRect& y) const;
+	double Evaluate_tmp(const Eigen::VectorXd& x, const FloatRect& y) const;
 	void UpdateDebugImage();
 };
 

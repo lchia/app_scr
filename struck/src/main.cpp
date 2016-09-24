@@ -290,7 +290,8 @@ int main(int argc, char* argv[])
 		if (tracker.IsInitialised())
 		{
 			if (trainingLogFile) {
-				trainingLogFile << "@@@Gate of tracking for each frame: main->tracker.Track(frame) .." << std::endl;
+				trainingLogFile << "================================================================================" << std::endl;
+				trainingLogFile << "Tracking for each frame: main->tracker.Track(frame) .." << std::endl;
 			}
 			tracker.Track(frame);
 			
@@ -332,6 +333,10 @@ int main(int argc, char* argv[])
 				cout << "\n\nend of sequence, press any key to exit" << endl;
 				waitKey();
 			}
+			if (trainingLogFile) {
+				trainingLogFile << "STOPSTOPSTOPSTOPSTOPSTOPSTOPSTOPSTOPSTOPSTOPSTOPSTOPSTOPSTOPSTOPSTOPSTOPSTOPSTOP" << std::endl;
+			}
+			waitKey();
 		}
 	}
 	

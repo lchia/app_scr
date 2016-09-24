@@ -49,6 +49,9 @@
 
 #include <vector>
 #include <algorithm>
+#include <random>
+#include <time.h>
+#include <stdlib.h>
 
 using namespace cv;
 using namespace std;
@@ -165,7 +168,7 @@ void Tracker::Initialise(const cv::Mat& frame, FloatRect bb)
         	{
         		trainingLogFile << "  @UpdateLearner(image)" << endl;
         	}
-		UpdateLearner(image);
+		UpdateLearner(image);///////////////////////////////////////////
 	}
 	m_initialised = true;
 }
@@ -177,6 +180,7 @@ void Tracker::Track(const cv::Mat& frame)
 	ImageRep image(frame, m_needsIntegralImage, m_needsIntegralHist);
 	
 	vector<FloatRect> rects = Sampler::PixelSamples(m_bb, m_config.searchRadius);
+	//vector<FloatRect> rects = Sampler::RadialSamples(m_bb, 2*m_config.searchRadius, 5, 16);
 	
 	vector<FloatRect> keptRects;
 	keptRects.reserve(rects.size());
@@ -192,18 +196,26 @@ void Tracker::Track(const cv::Mat& frame)
 	
 	//This is the Gate of Eval "scores" of each rects given the "sample"
 	if(trainingLogFile) {
-		trainingLogFile << "===========================Gate of Eval(sample, scroes)" << std::endl;
+		trainingLogFile << "  ********************Gate of Eval(sample, scroes)" << std::endl;
 	}
 	vector<double> scores;
+	/**
+	//Give random scores, added by lch
+	scores.resize(sample.GetRects().size());
+	srand(time(0));
+	for (int i = 0; i < sample.GetRects().size(); i++) {
+		scores[i] = rand()%100/100.0;
+	}
+	**/
 	m_pLearner->Eval(sample, scores);
         
 	
 	double bestScore = -DBL_MAX;
 	int bestInd = -1;
 	for (int i = 0; i < (int)keptRects.size(); ++i)
-	{		
+	{
                 if (i%500 == 0)
-                        std::cout<<"scores[i]: "<< scores[i] <<std::endl;//added by lch
+                        std::cout<<"scores[" << i << "]: "<< scores[i] <<std::endl;//added by lch
 		if (scores[i] > bestScore)
 		{
 			bestScore = scores[i];
@@ -214,17 +226,16 @@ void Tracker::Track(const cv::Mat& frame)
 	UpdateDebugImage(keptRects, m_bb, scores);
 	
 	if(trainingLogFile) {
-		trainingLogFile << "===========================Got the predict box" << std::endl;
+		trainingLogFile << "  **********************Got the predict box" << std::endl;
 		trainingLogFile << "	>bestScore: " << bestScore << std::endl;
 		trainingLogFile << "	>bestInd: " << bestInd << std::endl;
 		trainingLogFile << "	>m_bb: " << keptRects[bestInd] << std::endl;
-		trainingLogFile << "	>UpdateLearner(image) after got the 'm_bb'." << std::endl;
 	}
 	if (bestInd != -1)
 	{
 		m_bb = keptRects[bestInd];
 		UpdateLearner(image);
-#if VERBOSE		
+#if VERBOSE
 		cout << "track score: " << bestScore << endl;
 #endif
 	}
@@ -256,6 +267,7 @@ void Tracker::UpdateLearner(const ImageRep& image)
 	if (trainingLogFile)
         {
         	trainingLogFile << "  @Tracker::UpdateLearner .." << endl;
+
         	trainingLogFile << "    Sampler::RadialSamples(m_bb, 2*m_config.searchRadius, 5, 16) -> rects" << endl;
         }
 	// note these return the centre sample at index 0
@@ -287,9 +299,8 @@ void Tracker::UpdateLearner(const ImageRep& image)
 	if (trainingLogFile)
         {
         	
-        	trainingLogFile << "    @MultiSameple sample(image, keptRects) .."<< endl;
-		trainingLogFile << "    ==========================Gate of LaRank -> .." << endl;
-		trainingLogFile << "    @m_pLearner->Update(smaple, 0) .." << endl;
+        	trainingLogFile << "    @ MultiSameple sample(image, keptRects) .."<< endl;
+		trainingLogFile << "    ********************Gate of LaRank -> .." << endl; 
         }
 	m_pLearner->Update(sample, 0);
 }

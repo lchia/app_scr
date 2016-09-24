@@ -186,7 +186,7 @@ int main(int argc, char *argv[])
                             + i * beta_log_inter);
         trainingLogFile << "=============================================" << std::endl
                         << "@@Solving "  << nbs - i << "-th beta .." << endl;
-	trainingLogFile << "  beta_now = " << beta_now << "; (*beta) in section 5." << endl << endl;
+		trainingLogFile << "  beta_now = " << beta_now << "; (*beta) in section 5." << endl << endl;
         solver.set_beta(beta_now);
 
         std::cout << "===============================================" << std::endl
@@ -206,10 +206,10 @@ int main(int argc, char *argv[])
         double alpha_now;
 
         for (int j = nas - 1; j >= 0; --j) {
-	    //selet alpha_now according to (*alpha) in section 5
+	    	//selet alpha_now according to (*alpha) in section 5
             alpha_now = std::pow(10.0, log10(alpha_lb) + (j + 1) * alpha_log_inter);
             std::cout << " ## solving " << nas -j << "-th alpha" << std::endl;
-	    trainingLogFile << " ## Solving " << nas-j << "-th alpha: " << alpha_now << std::endl;
+	    	trainingLogFile << " ## Solving " << nas-j << "-th alpha: " << alpha_now << std::endl;
 
             if (j == nas - 1) {
                 solver.set_alpha(alpha_now, false);
@@ -223,7 +223,7 @@ int main(int argc, char *argv[])
 
             switch( task ) {
             case 0: {
-		//trainingLogFile << "    >start train()" << endl;
+			//trainingLogFile << "    >start train()" << endl;
                 auto start_time = sys_clk::now();
                 solver.train();
                 auto end_time = sys_clk::now();
