@@ -28,7 +28,7 @@ frameHeight = 400
 seed = 0
 
 # tracker search radius in pixels.
-searchRadius = 200
+searchRadius = 50
 
 # SVM regularization parameter.
 svmC = 100.0
