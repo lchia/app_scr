@@ -143,7 +143,8 @@ int main(int argc, char* argv[])
 			return EXIT_FAILURE;
 		}
 		
-		imgFormat = conf.sequenceBasePath+"/"+conf.sequenceName+"/imgs/img%05d.png";
+		//imgFormat = conf.sequenceBasePath+"/"+conf.sequenceName+"/imgs/img%05d.png";
+		imgFormat = conf.sequenceBasePath+"/"+conf.sequenceName+"/img/%04d.jpg";
 		
 		if (trainingLogFile)
 		{

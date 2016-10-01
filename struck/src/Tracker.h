@@ -34,16 +34,11 @@
 #include <Eigen/Core>
 #include <opencv/cv.h>
 
-#include <iostream>
-#include <fstream>
-
 class Config;
 class Features;
 class Kernel;
 class LaRank;
 class ImageRep;
-
-extern std::ofstream trainingLogFile;
 
 class Tracker
 {
@@ -73,4 +68,5 @@ private:
 	void UpdateLearner(const ImageRep& image);
 	void UpdateDebugImage(const std::vector<FloatRect>& samples, const FloatRect& centre, const std::vector<double>& scores);
 };
+
 #endif

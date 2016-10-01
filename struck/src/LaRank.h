@@ -30,24 +30,24 @@
 
 #include "Rect.h"
 #include "Sample.h"
-#include "s3ifs.h"
 
 #include <vector>
 #include <Eigen/Core>
+
 #include <opencv/cv.h>
-
-#include <iostream>
-#include <fstream>
-
 
 class Config;
 class Features;
 class Kernel;
+extern std::ofstream trainingLogFile; 
 
-extern std::ofstream trainingLogFile;
+#include <chrono>
+using sys_clk = std::chrono::system_clock;
 
+#include "s3ifs.h"
 using SpMatRd = Eigen::SparseMatrix<double, Eigen::RowMajor>;
-
+using scm_iit = Eigen::SparseMatrix<double, Eigen::ColMajor>::InnerIterator;
+using srm_iit = Eigen::SparseMatrix<double, Eigen::RowMajor>::InnerIterator;
 
 class LaRank
 {
@@ -59,12 +59,23 @@ public:
 	virtual void Update(const MultiSample& x, int y);
 	
 	virtual void Debug();
- 	SpMatRd X_;
- 	SpMatRd D_;
+    SpMatRd X_;
 
 private:
 
+	int debugMode = 1;
+	int printMode = 1;
+
 	struct SupportPattern
+	{
+		std::vector<Eigen::VectorXd> x;
+		std::vector<FloatRect> yv;
+		std::vector<cv::Mat> images;
+		int y;
+		int refCount;
+	};
+
+	struct SupportPattern_tmp
 	{
 		std::vector<Eigen::VectorXd> x;
 		std::vector<FloatRect> yv;
@@ -81,14 +92,25 @@ private:
 		double g;
 		cv::Mat image;
 	};
+
+	struct SupportVector_tmp
+	{
+		SupportPattern_tmp* x;
+		int y;
+		double b;
+		double g;
+		double l;
+		cv::Mat image;
+	};
 	
 	const Config& m_config;
 	const Features& m_features;
 	const Kernel& m_kernel;
 	
 	std::vector<SupportPattern*> m_sps;
+	std::vector<SupportPattern_tmp*> m_sps_tmp;
 	std::vector<SupportVector*> m_svs;
-	std::vector<SupportVector*> m_svs_tmp;
+	std::vector<SupportVector_tmp*> m_svs_tmp;
 
 	cv::Mat m_debugImage;
 	
@@ -116,7 +138,7 @@ private:
 	void Optimize();
 
 	int AddSupportVector(SupportPattern* x, int y, double g);
-	int AddSupportVector_tmp(SupportPattern* x, int y, double g);
+	void AddSupportVector_tmp(SupportPattern_tmp* x, int y, double g, double l);
 	void RemoveSupportVector(int ind);
 	void RemoveSupportVectors(int ind1, int ind2);
 	void SwapSupportVectors(int ind1, int ind2);

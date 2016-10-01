@@ -44,12 +44,6 @@ MultiFeatures::MultiFeatures(const vector<Features*>& features) :
 void MultiFeatures::UpdateFeatureVector(const Sample& s)
 {
 	int start = 0;
-	/**
-	if (trainingLogFile) {
-		trainingLogFile << "        >feature.size() = " << (int)m_features.size() << std::endl;
-	}
-	**/
-
 	for (int i = 0; i < (int)m_features.size(); ++i)
 	{
 		int n =  m_features[i]->GetCount();

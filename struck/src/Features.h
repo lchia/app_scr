@@ -33,8 +33,6 @@
 #include <Eigen/Core>
 #include <vector>
 
-extern std::ofstream trainingLogFile;
-
 class Features
 {
 public:
@@ -51,12 +49,6 @@ public:
 	{
 		// default implementation
 		featVecs.resize(s.GetRects().size());
-		/**
-		if (trainingLogFile) {
-			trainingLogFile << "      ->sample -> feature" << std::endl;
-			trainingLogFile << "      ->  num: " << s.GetRects().size() << std::endl;
-		}
-		**/
 		for (int i = 0; i < (int)featVecs.size(); ++i)
 		{
 			featVecs[i] = Eval(s.GetSample(i));

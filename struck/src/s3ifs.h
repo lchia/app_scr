@@ -18,7 +18,6 @@
 #include <chrono>
 #include <unordered_set>
 
-
 extern std::ofstream trainingLogFile;
 
 using SpMatRd = Eigen::SparseMatrix<double, Eigen::RowMajor>;
@@ -31,11 +30,12 @@ using mil_sec = std::chrono::milliseconds;
 using sys_clk = std::chrono::system_clock;
 
 using u_set = std::unordered_set<int>;
+ 
 
 class s3ifs
 {
 public:
-	s3ifs(SpMatRd X_, SpMatRd D_);
+	s3ifs(SpMatRd X_);
 	~s3ifs();
 
     int get_n_sams(void) const;
@@ -69,6 +69,7 @@ public:
     void ifs(void);
     void iss(void);
 
+	void printMat(SpMatRd M);
     void clear_idx(void);
 
     int get_n_L(void) const;
@@ -80,30 +81,32 @@ public:
     double get_beta_max(void) const;
 
     SpMatRd X_;  // \bar{X}, each row contains one sample
-    SpMatRd D_;  // \bar{X}, each row contains one sample
     SpMatCd X_CM_;  // column major representation of \bar{X}
-    //Eigen::ArrayXd y_;  // training labels
     
     double fea_scr_time_;
     double sam_scr_time_;
     double scr_time_;
 
-private:
-	int log_yn = 1;
-	
 	double rbu, rbl, rau, ral;
 	int nbs, nas, max_iter, chk_fre, scr_max_iter;
-	double gam, tol;
-	double alpha, beta;
+	//double gam, tol;
+	//double alpha, beta;
 	int task;
+
+    Eigen::VectorXd psol_;
+    Eigen::VectorXd dsol_;
+    double alpha_;
+    double beta_;
+
+private:
+	int debugMode = 1;
+	int printMode = 1;
 
 	void parse_command_line();
 
     int n_sams_;
     int n_feas_;
 
-    double alpha_;
-    double beta_;
     double gamma_;
     double tol_;
     int max_iter_;
@@ -123,9 +126,8 @@ private:
     double inv_alpha_;
     double inv_gamma_;
 
-    Eigen::ArrayXd one_over_XTones_;  // \bar{X}^T * ones / n
-    Eigen::VectorXd psol_;
-    Eigen::VectorXd dsol_;
+    Eigen::ArrayXd one_over_XTones_;  		// \bar{X}^T * ones / n
+	Eigen::ArrayXd abs_one_over_XTones_; 	// \bar{|X|}^T * ones / n
     Eigen::VectorXd XTdsol_; // \bar{X}^T * theta / n
     Eigen::ArrayXd Xw_comp_; // 1 - \bar{X} * w
     

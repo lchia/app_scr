@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Struck: Structured Output Tracking with Kernels
 
 
@@ -55,6 +54,3 @@ This code is released under the GPLv3 license for non-commercial use only. For o
 
 This code uses the OpenCV graphing utilities provided
 by Shervin Emami: http://www.shervinemami.info/graphs.html
-=======
-# st
->>>>>>> 1c7b65696c8a190ed34082d14d3ddc3c383f6181

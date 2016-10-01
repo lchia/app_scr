@@ -1,35 +1,88 @@
 #include "s3ifs.h"
- 
-s3ifs::s3ifs(SpMatRd X, SpMatRd D)
+
+s3ifs::s3ifs(SpMatRd X)
 {
+	if (trainingLogFile && debugMode == 1)	{
+		trainingLogFile << "*************************************"
+						<< "*************************%%%%%%%%%%%%%Construction" 
+						<< std::endl;
+	}
+
     s3ifs::parse_command_line();
-	if (log_yn == 1)
-	{
-		std::cout << "rbu: " << rbu << std::endl;
+	if (trainingLogFile && debugMode == 1)	{
+		trainingLogFile << "@@@@@@@@rbu: " << rbu << std::endl;
 	}
 	X_ = X;
-	D_ = D;
-    X_CM_ = X_;
     n_sams_ = X_.rows();
     n_feas_ = X_.cols();
+	if (trainingLogFile && debugMode == 1)	{
+		trainingLogFile << "@@@@@@@@n_sams_: " << n_sams_ << std::endl;
+		trainingLogFile << "@@@@@@@@n_feas_: " << n_feas_ << std::endl;
+	}
+    X_CM_ = X_;
 
     inv_n_sams_ = 1.0 / static_cast<double>(n_sams_);
     inv_gamma_ = 1.0 / gamma_;
     inv_alpha_ = 1.0 / alpha_;
+	if (trainingLogFile && debugMode == 1)	{
+		trainingLogFile << "@@@@@@@@inv_n_sams_: " << inv_n_sams_ << std::endl;
+		trainingLogFile << "@@@@@@@@inv_gamma_: " << inv_gamma_ << std::endl;
+		trainingLogFile << "@@@@@@@@inv_alpha_: " << inv_alpha_ << std::endl;
+	}
 	
+	//compute one_over_XTones_ & print
     one_over_XTones_ =
         inv_n_sams_ * (X_CM_.transpose() * Eigen::VectorXd::Ones(n_sams_)).array();
 
+	if (trainingLogFile && debugMode == 1)	{
+		trainingLogFile << "%%%%%%%%%%%%%%%%%one_over_XTones_(" << n_feas_ << "):";
+		for (int kk = 0; kk < n_sams_; kk++) 	
+		{
+			if (kk%15==0 || kk == n_sams_-1)
+			{
+				trainingLogFile << "(" << kk << ")" << one_over_XTones_[kk] << ",";
+			}
+		}
+		trainingLogFile << std::endl;
+	}
+
+	//Compute beta_max_
     beta_max_ = one_over_XTones_.abs().maxCoeff();
+	if (trainingLogFile && debugMode == 1)	{
+		trainingLogFile << "%%%%%%%%%%%%%%beta_max_ = " << beta_max_ << std::endl;
+	}
     if (beta_ >= beta_max_) {
         std::cout << "beta >= beta_max: always have naive solutions" << std::endl;
     }
 
+	//FOR alpha_max_: temp = S_{beta_}(1/n * X_ * 1)  in Theorem 3
     Eigen::ArrayXd temp =
         (one_over_XTones_ > beta_).select(one_over_XTones_ - beta_, 0.0) +
         (one_over_XTones_ < -beta_).select(one_over_XTones_ + beta_, 0.0);
+	if (trainingLogFile && debugMode == 1)	{
+		trainingLogFile << "%%%%%%%%%%%%%%%%%temp(" << n_feas_ << "):";
+		if (printMode == 1)
+		{
+			for (int kk = 0; kk < n_sams_; kk++) 	
+			{
+				if (kk%15==0 || kk == n_sams_-1) 
+				{
+					trainingLogFile << "(" << kk << ")" << temp[kk] << ",";
+				}
+			}
+			trainingLogFile << std::endl;
+		}
+		else
+		{
+			trainingLogFile << temp[0] << "	...	" << temp[n_sams_-1] << std::endl;
+		}
+	}
  
+	//Compute alpha_max_ in Theorem 3.
     alpha_max_ = (1.0/(1.0 - gamma_)) * (X_ * temp.matrix()).maxCoeff();
+	if (trainingLogFile && debugMode == 1)	{
+		trainingLogFile << "%%%%%%%%%%%%%%alpha_max_ = " << alpha_max_ << std::endl;
+	}
 
     if (alpha_max_ > 0) {
         ref_alpha_ = alpha_max_;
@@ -54,12 +107,23 @@ s3ifs::s3ifs(SpMatRd X, SpMatRd D)
     for (int i = 0; i < n_sams_; ++i) {
         Xi_norm_[i] = X_.row(i).norm();
     }
+	if (trainingLogFile && debugMode == 1)	{
+		trainingLogFile << "%%%%%%%%%%%%%%Xi_norm_ = [" 
+			<< Xi_norm_[0] << "	...	" << Xi_norm_[n_sams_-1] << "]" << std::endl;
+	}
 
     Xj_norm_.resize(n_feas_);
     for (int j = 0; j < n_feas_; ++j) {
         Xj_norm_[j] = X_CM_.col(j).norm();
     } 
-	
+	if (trainingLogFile && debugMode == 1)	{
+		trainingLogFile << "%%%%%%%%%%%%%%Xi_norm_ = [" 
+			<< Xj_norm_[0] << "	...	" << Xj_norm_[n_feas_-1] << "]" << std::endl;
+	}
+	 
+    Xi_norm_sq_ = Xi_norm_.square();
+    Xj_norm_sq_ = Xj_norm_.square();
+ 
     all_ins_index_.resize(n_sams_);
     std::iota(std::begin(all_ins_index_), std::end(all_ins_index_), 0);
     all_fea_index_.resize(n_feas_);
@@ -81,6 +145,12 @@ s3ifs::s3ifs(SpMatRd X, SpMatRd D)
               std::back_inserter(idx_Dc_vec_));
     std::copy(std::begin(all_fea_index_), std::end(all_fea_index_),
               std::back_inserter(idx_Fc_vec_));
+	if (trainingLogFile && debugMode == 1)	{
+		trainingLogFile << "%%%%%%%%%%%%%%idx_Dc_vec_ = [" 
+			<< idx_Dc_vec_[0] << "	...	" << idx_Dc_vec_[n_sams_-1] << "]" << std::endl;
+		trainingLogFile << "%%%%%%%%%%%%%%idx_Fc_vec_ = [" 
+			<< idx_Fc_vec_[0] << "	...	" << idx_Fc_vec_[n_feas_-1] << "]" << std::endl;
+	}
 
     approx_dsol_r_L_sq_ = 0.0;
     approx_dsol_r_R_sq_ = 0.0;
@@ -92,12 +162,55 @@ s3ifs::s3ifs(SpMatRd X, SpMatRd D)
 
     iter_ = 0;
     duality_gap_ = std::numeric_limits<double>::max();
+	if (trainingLogFile && debugMode == 1)	{
+		trainingLogFile << "....................%s3ifs Construction%duality_gap_ = " 
+			<< duality_gap_ << std::endl;
+	}
+	if (trainingLogFile && debugMode == 1)	{
+		trainingLogFile << "*************************************"
+						<< "*************************%%%%%%%%%%%%%Construction END" 
+						<< std::endl << std::endl;
+	}
     //s3ifs solver(input_fn, alpha, beta, gam, tol, max_iter, chk_fre, scr_max_iter);
 }
 
 s3ifs::~s3ifs()
 {}
 
+void s3ifs::printMat(SpMatRd M)
+{
+	trainingLogFile << std::endl;
+	trainingLogFile << "Matrix: [" << M.rows() << "," << M.cols() << "]" << std::endl;
+	int printMode = 0;
+	if (printMode == 1)
+	{
+		for(int i = 0; i < M.rows(); i++)
+		{
+			Eigen::ArrayXd M_row = M.row(i);
+
+			trainingLogFile << "Row[" << i << "]:";
+			for(int j = 0; j < M.cols(); j++)
+			{
+				trainingLogFile << M_row[j] << " ";
+			}
+			trainingLogFile  << std::endl;
+		}
+	}
+	else
+	{	
+		Eigen::ArrayXd M_row_1 = M.row(0);
+		Eigen::ArrayXd M_row_2 = M.row(M.rows()-1); 
+		trainingLogFile << "        [" 
+						<< M_row_1[0] << " ... " << M_row_1[M.cols()-1] << "]"
+						<< std::endl;
+		trainingLogFile << "        "  << "	.				." << std::endl
+						<< "        "  << "	.				." << std::endl;
+		trainingLogFile << "        ["   
+						<< M_row_2[0] << " ... " << M_row_2[M.cols()-1] << "]"
+						<< std::endl;
+	}
+	trainingLogFile  << std::endl;
+}
 int s3ifs::get_n_sams(void) const { return n_sams_; }
 int s3ifs::get_n_feas(void) const { return n_feas_; }
 
@@ -183,8 +296,18 @@ void s3ifs::update_psol(const bool& flag_comp_XTdsol) {
 
 void s3ifs::train_sifs(const int& scr_option) 
 {
+	if (trainingLogFile && debugMode == 1)	{
+		trainingLogFile << "=================================s3ifs::train_sifs "
+						<< std::endl;
+	}
     // we have closed form solution, if alpha > alpha_max(beta)
     if (alpha_ >= alpha_max_) {
+		if (trainingLogFile && debugMode == 1)	{
+			trainingLogFile << "...........#train_sifs#<alpha_, alpha_max_>=<" 
+				<< alpha_ << ", " << alpha_max_ 
+				<< ">: We have closed form solution, if alpha > alpha_max(beta)." 
+				<< std::endl;
+		}
         dsol_.setOnes();
         Eigen::ArrayXd temp =
             (one_over_XTones_ > beta_).select(one_over_XTones_ - beta_, 0.0) +
@@ -194,15 +317,33 @@ void s3ifs::train_sifs(const int& scr_option)
         return;
     }
 
-    if (scr_option == 0) {  // alternative safe screening
-                            // and performing sample screening first
+    if (scr_option == 0) {        
+		if (trainingLogFile && debugMode == 1)	{
+			trainingLogFile << ".............#train_sifs#scr_option=" << scr_option
+				<< "-> alternative safe screening, and sample screening first." 
+				<< std::endl;
+		}
         sifs(true);
-    } else if (scr_option == 1) {  // alternative safe screening
-                                   // and performing feature screening first
+    } else if (scr_option == 1) {  
+		if (trainingLogFile && debugMode == 1)	{
+			trainingLogFile << ".............#train_sifs#scr_option=" << scr_option
+				<< "-> alternative safe screening, and feature screening first." 
+				<< std::endl;
+		}
         sifs(false);
-    } else if (scr_option == 2) {  // only sample screening
+    } else if (scr_option == 2) {
+		if (trainingLogFile && debugMode == 1)	{
+			trainingLogFile << ".............#train_sifs#scr_option=" << scr_option
+				<< "-> only sample screening." 
+				<< std::endl;
+		}
         iss();
-    } else if (scr_option == 3) {  // only feature screening
+    } else if (scr_option == 3) {
+		if (trainingLogFile && debugMode == 1)	{
+			trainingLogFile << ".............#train_sifs#scr_option=" << scr_option
+				<< "-> only feature screening." 
+				<< std::endl;
+		}
         ifs();
     }
 
@@ -220,6 +361,10 @@ void s3ifs::train_sifs(const int& scr_option)
             std::max(0.0, std::abs(XTdsol_[kk]) - beta_);
     }
     compute_duality_gap(true, false);
+	if (trainingLogFile && debugMode == 1)	{
+		trainingLogFile << "....................#train_sifs#duality_gap_ = " 
+			<< duality_gap_ << std::endl;
+	}
 
     int n_Dc = idx_Dc_vec_.size();
     if (n_Dc == 0) {
@@ -240,34 +385,90 @@ void s3ifs::train_sifs(const int& scr_option)
 
     for (iter_ = 1; iter_ < max_iter_ && duality_gap_ > tol_; ++iter_) 
 	{
+		if (!trainingLogFile && debugMode == 1)	{
+			trainingLogFile << "............#train_sifs#iter_ = " 
+				<< iter_ << "->(max_iter_) " << max_iter_ << std::endl;
+		}
         for (int jj = 0; jj < n_Dc; ++jj) 
 		{
+			if (!trainingLogFile && debugMode == 1 && jj%50==0)	{
+				trainingLogFile << "................#train_sifs#jj = " 
+					<< jj << "->(n_Dc) " << n_Dc << std::endl;
+			}
+
             random_it = std::next(ins_begin_it, uni_dist(rg));
             ind = *random_it;
+			if (!trainingLogFile && debugMode == 1 && jj%50==0)	{
+				trainingLogFile << "................#train_sifs#ind = " 
+					<< ind << std::endl;
+			}
 
             p_theta_ind = dsol_[ind];
+			if (!trainingLogFile && debugMode == 1 && jj%50==0)	{
+				trainingLogFile << "................#train_sifs#p_theta_ind = " 
+					<< p_theta_ind << std::endl;
+			}
+
+			if (!trainingLogFile && debugMode == 1 && jj%50==0)	{
+				trainingLogFile << "................#train_sifs#Xi_norm_sq_[ind]"
+					<< Xi_norm_sq_[ind] << std::endl;
+				trainingLogFile << "................#train_sifs#(X_.row(ind) * psol_)"
+					<< X_.row(ind) * psol_ << std::endl;
+			}
             delta_ind = (1 - gamma_ * p_theta_ind - (X_.row(ind) * psol_)(0)) /
                 (gamma_ + Xi_norm_sq_[ind] * inv_nalpha_);
+			if (!trainingLogFile && debugMode == 1 && jj%50==0)	{
+				trainingLogFile << "................#train_sifs#delta_ind@1 = " 
+					<< delta_ind << std::endl;
+			}
             delta_ind = std::max(-p_theta_ind, std::min(1.0 - p_theta_ind,
                                                         delta_ind));
-            dsol_[ind] += delta_ind;
+			if (!trainingLogFile && debugMode == 1 && jj%50==0)	{
+				trainingLogFile << "................#train_sifs#delta_ind@2 = " 
+					<< delta_ind << std::endl;
+			}
+            dsol_[ind] += delta_ind; 
+			if (!trainingLogFile && debugMode == 1 && jj%50==0)	{
+				trainingLogFile << "................#train_sifs#dsol_[ind] = " 
+					<< dsol_[ind] << std::endl;
+			}
+
             XTdsol_ +=  (delta_ind * inv_n_sams_) * X_.row(ind);
+			if (!trainingLogFile && debugMode == 1 && jj%50==0)	{
+				trainingLogFile << "................#train_sifs#XTdsol_ = " 
+					<< XTdsol_.size() << std::endl;
+			}
+
 
             for (auto &&kk : idx_Fc_vec_) {
                 psol_[kk] = inv_alpha_ * val_sign(XTdsol_[kk]) *
                     std::max(0.0, std::abs(XTdsol_[kk]) - beta_);
             }
+			if (!trainingLogFile && debugMode == 1 && jj%50==0)	{
+				trainingLogFile << "................#train_sifs#psol_ = " 
+					<< psol_.size() << std::endl;
+			}
         }
 
         if (iter_ % chk_fre_ == 0) {
             compute_duality_gap(true, false);
+			if (trainingLogFile && debugMode == 1)	{
+				trainingLogFile << "...............#train_sifs#Iter: " << iter_ 
+								<< "; Primal obj: " << get_primal_obj()
+                     			<< "; Dual obj: " << get_dual_obj()
+                    			<< "; Duality gap: " << get_duality_gap() 
+								<< std::endl;
+			}
             //std::cout<< "    Iter: " << iter_ << " Primal obj: " << get_primal_obj()
             //         << " Dual obj: " << get_dual_obj()
             //         << " Duality gap: " << get_duality_gap() << std::endl;
         }
     }
+	if (trainingLogFile && debugMode == 1)	{
+		trainingLogFile << "=================================s3ifs::train_sifs  END!====="
+						<< std::endl;
+	}
 }
-
 
 void s3ifs::clear_idx(void)
 {
@@ -298,13 +499,16 @@ void s3ifs::clear_idx(void)
 }
 
 void s3ifs::set_alpha(const double& alpha, const bool& ws) {
-    if (ws) {  // solved problem as warm start and reference solutions
+    if (ws) 
+	{  // solved problem as warm start and reference solutions
         ref_alpha_ = alpha_;
         alpha_ = alpha;
         inv_alpha_ = 1.0 / alpha_;
         ref_psol_ = psol_;
         ref_dsol_ = dsol_;
-    } else {  // no warm start, use naive solution as reference solutions
+    } 
+	else 
+	{  // no warm start, use naive solution as reference solutions
         alpha_ = alpha;
         inv_alpha_ = 1.0 / alpha_;
         ref_alpha_ = alpha_max_;
@@ -373,6 +577,10 @@ void s3ifs::set_beta(const double& beta) {
 
 void s3ifs::sample_screening(void) 
 {
+	if (trainingLogFile && debugMode == 1)	{
+		trainingLogFile << "++++++++++++++++++++++++++++s3ifs::sample_screening"
+						<< std::endl;
+	}
     auto start_time = sys_clk::now();
 
     const double L_coeff = 0.5 * ((2 * gamma_ - 1) * alpha_ + ref_alpha_) *
@@ -435,10 +643,18 @@ void s3ifs::sample_screening(void)
     auto end_time = sys_clk::now();
     sam_scr_time_ += static_cast<double>(
         std::chrono::duration_cast<mil_sec>(end_time - start_time).count());
+	if (trainingLogFile && debugMode == 1)	{
+		trainingLogFile << "++++++++++++++++++++++++++++END !! sample_screening"
+						<< std::endl;
+	}
 }
 
 void s3ifs::feature_screening(void) 
-	{
+{
+	if (trainingLogFile && debugMode == 1)	{
+		trainingLogFile << "---------------------------s3ifs::feature_screening"
+						<< std::endl;
+	}
     auto start_time = sys_clk::now();
 
     double dsol_radius =
@@ -483,17 +699,37 @@ void s3ifs::feature_screening(void)
     auto end_time = sys_clk::now();
     fea_scr_time_ += static_cast<double>(
         std::chrono::duration_cast<mil_sec>(end_time - start_time).count());
+	if (trainingLogFile && debugMode == 1)	{
+		trainingLogFile << "---------------------------END !! feature_screening"
+						<< std::endl;
+	}
 }
 
 
 void s3ifs::sifs(const bool& sample_scr_first) 
 {
+	if (trainingLogFile && debugMode == 1)	{
+		trainingLogFile << ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>sifs"
+						<< std::endl;
+	}
     auto start_time = sys_clk::now();
     approx_dsol_c_ =
-        (dif_alpha_ratio_ * inv_gamma_) + sum_alpha_ratio_ * ref_dsol_.array();//formular (5)
+        (dif_alpha_ratio_ * inv_gamma_) + sum_alpha_ratio_ * ref_dsol_.array();//formular (5) 
+	if (trainingLogFile && debugMode == 1)	{
+		trainingLogFile << "oooooo@sifs@approx_dsol_c_->" << approx_dsol_c_.size() 
+						<< "; " << approx_dsol_c_[0] << "	...	"
+						<< approx_dsol_c_[approx_dsol_c_.size()-1]
+						<< std::endl;
+	}
 
     approx_psol_r_sq_ = ref_psol_.squaredNorm(); //first squre of (3)
     approx_dsol_r_sq_ = (ref_dsol_.array() - inv_gamma_).square().sum();//first square of (6)
+	if (trainingLogFile && debugMode == 1)	{
+		trainingLogFile << "oooooo@sifs@approx_psol_r_sq_->" << approx_psol_r_sq_
+						<< std::endl;
+		trainingLogFile << "oooooo@sifs@approx_dsol_r_sq_->" << approx_dsol_r_sq_
+						<< std::endl;
+	}
  
     //initialization
     int n_Dc = n_sams_;
@@ -502,30 +738,71 @@ void s3ifs::sifs(const bool& sample_scr_first)
     int n_Fc_pre = n_Fc;
     int scr_iter = 0;
     
+	if (trainingLogFile && debugMode == 1)	{
+		trainingLogFile << "oooooo@sifs@n_Dc->" << n_Dc
+						<< std::endl;
+		trainingLogFile << "oooooo@sifs@n_Fc->" << n_Fc
+						<< std::endl;
+		trainingLogFile << "oooooo@sifs@n_Dc_pre->" << n_Dc_pre
+						<< std::endl;
+		trainingLogFile << "oooooo@sifs@n_Fc_pre->" << n_Fc_pre
+						<< std::endl;
+	}
+
     while (true)
 	{
         scr_iter++;
+		if (trainingLogFile && debugMode == 1)	{
+			trainingLogFile << "oooooo@sifs@scr_iter->" << scr_iter
+							<< std::endl;
+		}
+
         n_Dc_pre = n_Dc;
         n_Fc_pre = n_Fc;
         if (sample_scr_first) 
 		{
+			if (trainingLogFile && debugMode == 1)	{
+				trainingLogFile << "oooooo@sifs@sample_scr_first->" << sample_scr_first
+								<< std::endl;
+			}
             sample_screening();
             feature_screening();
         } 
 		else 
 		{
+			if (trainingLogFile && debugMode == 1)	{
+				trainingLogFile << "oooooo@sifs@sample_scr_first->" << sample_scr_first
+								<< std::endl;
+			}
             feature_screening();
             sample_screening();
         }
         n_Dc = idx_Dc_.size();
         n_Fc = idx_Fc_.size();
+		if (trainingLogFile && debugMode == 1)	{
+			trainingLogFile << "......@sifs@n_Dc->" << n_Dc
+							<< std::endl;
+			trainingLogFile << "......@sifs@n_Fc->" << n_Fc
+							<< std::endl;
+		}
 
         if ((n_Dc == n_Dc_pre) && (n_Fc == n_Fc_pre)) 
 		{
+			if (trainingLogFile && debugMode == 1)	{
+				trainingLogFile << "!!!!!!@sifs@(n_Dc == n_Dc_pre) && (n_Fc == n_Fc_pre): "
+								<< n_Dc << "==" << n_Dc_pre << " && " 
+								<< n_Fc << "==" << n_Fc_pre
+								<< std::endl; 
+			}
             break;
         }
         if (scr_max_iter_ > 0 && scr_iter >= scr_max_iter_) 
 		{
+			if (trainingLogFile && debugMode == 1)	{
+				trainingLogFile << "!!!!!!@sifs@scr_max_iter_ > 0 && scr_iter >= scr_max_iter_: "
+								<< scr_iter << "==" << scr_max_iter_
+								<< std::endl; 
+			}
             break;
         }
     }
@@ -544,6 +821,10 @@ void s3ifs::sifs(const bool& sample_scr_first)
     auto end_time = sys_clk::now();
     scr_time_ = static_cast<double>(
         std::chrono::duration_cast<mil_sec>(end_time - start_time).count());
+	if (trainingLogFile && debugMode == 1)	{
+		trainingLogFile << ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>sifs !! END"
+						<< std::endl;
+	}
 }
 
 void s3ifs::ifs(void) 
@@ -586,19 +867,22 @@ void s3ifs::iss(void)
 void s3ifs::parse_command_line() 
 {
     // default parameters
+	if (trainingLogFile && debugMode == 1)	{
+		trainingLogFile << "@@@@@@@@s3ifs::parse_command_line()" << std::endl;
+	}
     rbu = 1.0;
     rbl = 0.05;
     nbs = 10;
     rau = 1.0;
     ral = 0.01;
     nas = 100;
-    max_iter = 10000;
-    gam = 0.05;
-    tol = 1e-9;
-    chk_fre = 1;
-    scr_max_iter = 0;
-    alpha = 1e-3;
-    beta = 1e-3;
-    task = -1;
+    max_iter_ = 10000;
+    gamma_ = 0.05;
+    tol_ = 1e-9;
+    chk_fre_ = 10;
+    scr_max_iter_ = 0;
+    alpha_ = 1e-3;
+    beta_ = 1e-3;
+    task = 1;
 }
 

@@ -17,12 +17,15 @@ trainingLogPath = trainingLog.txt
 
 # video sequence to run the tracker on.
 # comment this out to use webcam.
-sequenceName = girl
+# sequenceName = girl
+# sequenceName = faceocc
+#sequenceName = tiger1
+sequenceName = MotorRolling
 
 # frame size for use during tracking.
 # the input image will be scaled to this size.
-frameWidth = 400
-frameHeight = 400
+frameWidth = 320
+frameHeight = 240
 
 # seed for random number generator.
 seed = 0

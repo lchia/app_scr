@@ -32,9 +32,6 @@
 
 #include <vector>
 
-extern std::ofstream trainingLogFile;
-
-
 class Config;
 
 class MultiFeatures : public Features
