@@ -36,6 +36,7 @@
 
 using namespace Eigen;
 using namespace cv;
+using namespace std;
 
 static const int kPatchSize = 16;
 
@@ -47,18 +48,27 @@ RawFeatures::RawFeatures(const Config& conf) :
 
 void RawFeatures::UpdateFeatureVector(const Sample& s)
 {
+	cout << "RawFeatures::UpdateFeatureVector(const Sample& s).....................0" << endl;
 	IntRect rect = s.GetROI(); // note this truncates to integers
+
+	cout << "RawFeatures::UpdateFeatureVector(const Sample& s).....................1" << endl;
 	cv::Rect roi(rect.XMin(), rect.YMin(), rect.Width(), rect.Height());
+
+	cout << "RawFeatures::UpdateFeatureVector(const Sample& s).....................2" << endl;
 	cv::resize(s.GetImage().GetImage(0)(roi), m_patchImage, m_patchImage.size());
 	//equalizeHist(m_patchImage, m_patchImage);
 	
+	cout << "RawFeatures::UpdateFeatureVector(const Sample& s).....................3" << endl;
 	int ind = 0;
 	for (int i = 0; i < kPatchSize; ++i)
 	{
 		uchar* pixel = m_patchImage.ptr(i);
+	cout << "RawFeatures::UpdateFeatureVector(const Sample& s).....................4" << endl;
 		for (int j = 0; j < kPatchSize; ++j, ++pixel, ++ind)
 		{
+	cout << "RawFeatures::UpdateFeatureVector(const Sample& s).....................5" << endl;
 			m_featVec[ind] = ((double)*pixel)/255;
+	cout << "RawFeatures::UpdateFeatureVector(const Sample& s).....................6" << endl;
 		}
 	}
 }

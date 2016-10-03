@@ -40,6 +40,7 @@ class Kernel;
 class LaRank;
 class ImageRep;
 
+extern std::ofstream trainingLogFile; 
 class Tracker
 {
 public:
@@ -52,6 +53,7 @@ public:
 	void Debug();
 	
 	inline const FloatRect& GetBB() const { return m_bb; }
+	inline const FloatRect& GetBB_tmp() const { return m_bb_tmp; }
 	inline bool IsInitialised() const { return m_initialised; }
 	
 private:
@@ -61,12 +63,17 @@ private:
 	std::vector<Kernel*> m_kernels;
 	LaRank* m_pLearner;
 	FloatRect m_bb;
+	FloatRect m_bb_tmp;
 	cv::Mat m_debugImage;
+	cv::Mat m_debugImage_tmp;
 	bool m_needsIntegralImage;
 	bool m_needsIntegralHist;
 	
 	void UpdateLearner(const ImageRep& image);
-	void UpdateDebugImage(const std::vector<FloatRect>& samples, const FloatRect& centre, const std::vector<double>& scores);
+	void UpdateDebugImage(const std::vector<FloatRect>& samples, 
+		const FloatRect& centre, const std::vector<double>& scores);
+	void UpdateDebugImage_tmp(const std::vector<FloatRect>& samples, 
+		const FloatRect& centre, const std::vector<double>& scores_tmp);
 };
 
 #endif

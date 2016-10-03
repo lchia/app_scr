@@ -55,11 +55,13 @@ public:
 	LaRank(const Config& conf, const Features& features, const Kernel& kernel);
 	~LaRank();
 	
-	virtual void Eval(const MultiSample& x, std::vector<double>& results);
+	virtual void Eval(const MultiSample& x, std::vector<double>& results,  
+					 Eigen::VectorXd psol_, std::vector<double>& results_tmp);
 	virtual void Update(const MultiSample& x, int y);
 	
 	virtual void Debug();
-    SpMatRd X_;
+    SpMatRd X_; 
+    Eigen::VectorXd psol_;
 
 private:
 
@@ -113,6 +115,7 @@ private:
 	std::vector<SupportVector_tmp*> m_svs_tmp;
 
 	cv::Mat m_debugImage;
+	cv::Mat m_debugImage_tmp;
 	
 	double m_C;
 	Eigen::MatrixXd m_K;
@@ -140,15 +143,19 @@ private:
 	int AddSupportVector(SupportPattern* x, int y, double g);
 	void AddSupportVector_tmp(SupportPattern_tmp* x, int y, double g, double l);
 	void RemoveSupportVector(int ind);
+	void RemoveSupportVector_tmp(Eigen::VectorXd dsol_);
 	void RemoveSupportVectors(int ind1, int ind2);
 	void SwapSupportVectors(int ind1, int ind2);
+	void SwapSupportVectors_tmp(int ind1, int ind2);
 	
 	void BudgetMaintenance();
 	void BudgetMaintenanceRemove();
 
 	double Evaluate(const Eigen::VectorXd& x, const FloatRect& y) const;
 	double Evaluate_tmp(const Eigen::VectorXd& x, const FloatRect& y) const;
+	double Evaluate_tmp_score(const Eigen::VectorXd& x, Eigen::VectorXd psol_) const;
 	void UpdateDebugImage();
+	void UpdateDebugImage_tmp();
 };
 
 #endif

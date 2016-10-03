@@ -33,6 +33,9 @@
 #include <Eigen/Core>
 #include <vector>
 
+#include <iostream>
+using namespace std;
+
 class Features
 {
 public:
@@ -49,6 +52,7 @@ public:
 	{
 		// default implementation
 		featVecs.resize(s.GetRects().size());
+
 		for (int i = 0; i < (int)featVecs.size(); ++i)
 		{
 			featVecs[i] = Eval(s.GetSample(i));

@@ -10,6 +10,7 @@ sequenceBasePath = sequences
 # path for output results file.
 # comment this out to disable output.
 resultsPath = log.txt
+resultsPath_tmp = log_tmp.txt
 
 # path for output training log file.
 # comment this out to disable output.

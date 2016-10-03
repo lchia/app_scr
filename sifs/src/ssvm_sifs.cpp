@@ -15,8 +15,9 @@ ssvm_sifs::ssvm_sifs(const std::string& input_fn,
     trainingLogFile << "**  This is the gate of the 'sifs'        **" <<endl;
     trainingLogFile << "**********************************************" << endl;
     //libsvm binary data 
-    //sdm::load_libsvm_binary(X_, y_, input_fn);
+    sdm::load_libsvm_binary(X_, y_, input_fn);
     //syn data
+/**
     X_.resize(600, 500);
     y_.resize(600);
     trainingLogFile << "   ->syn data" << std::endl;
@@ -26,11 +27,10 @@ ssvm_sifs::ssvm_sifs(const std::string& input_fn,
 	else
 	   y_(i) = -1;
     	for (int j = 0; j < X_.cols(); j++) {
-	   X_.insert(i,j) = rand();
-	}
+	   		X_.insert(i,j) = rand();
+		}
     }
-    X_.makeCompressed();
-
+**/
     //print the size of the data
     trainingLogFile << "     output: X_, y_ >>[" << X_.rows() << ", " << X_.cols() <<"], " << y_.size() << endl;
 
@@ -39,6 +39,8 @@ ssvm_sifs::ssvm_sifs(const std::string& input_fn,
     for (int i = 0; i < X_.rows(); ++i){
         X_.row(i) *= y_[i];
     }
+    X_.makeCompressed();
+
     X_CM_ = X_;
     n_sams_ = X_.rows();
     n_feas_ = X_.cols();

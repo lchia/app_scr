@@ -33,6 +33,7 @@
 #include <ostream>
 
 #define VERBOSE (0)
+extern std::ofstream trainingLogFile; 
 
 class Config
 {
@@ -68,6 +69,7 @@ public:
 	std::string						sequenceBasePath;
 	std::string						sequenceName;
 	std::string						resultsPath;
+	std::string						resultsPath_tmp;
 	std::string						trainingLogPath;
 	
 	int								frameWidth;

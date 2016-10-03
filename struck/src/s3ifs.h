@@ -99,7 +99,7 @@ public:
     double beta_;
 
 private:
-	int debugMode = 1;
+	int debugMode = 0;
 	int printMode = 1;
 
 	void parse_command_line();

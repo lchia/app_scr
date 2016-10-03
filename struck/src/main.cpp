@@ -77,6 +77,16 @@ int main(int argc, char* argv[])
 			return EXIT_FAILURE;
 		}
 	}
+	ofstream outFile_tmp;
+	if (conf.resultsPath_tmp != "")
+	{
+		outFile_tmp.open(conf.resultsPath_tmp.c_str(), ios::out);
+		if (!outFile_tmp)
+		{
+			cout << "error: could not open results file: " << conf.resultsPath_tmp << endl;
+			return EXIT_FAILURE;
+		}
+	}
 	
 	//ofstream trainingLogFile;
 	if (conf.trainingLogPath!= "")
@@ -211,9 +221,11 @@ int main(int argc, char* argv[])
 	if (!conf.quietMode)
 	{
 		namedWindow("result");
+		namedWindow("result_screening");
 	}
 	
 	Mat result(conf.frameHeight, conf.frameWidth, CV_8UC3);
+	Mat result_tmp(conf.frameHeight, conf.frameWidth, CV_8UC3);
 	bool paused = false;
 	bool doInitialise = false;
 	srand(conf.seed);
@@ -225,6 +237,7 @@ int main(int argc, char* argv[])
 	for (int frameInd = startFrame; frameInd <= endFrame; ++frameInd)
 	//for (int frameInd = startFrame; frameInd <= startFrame+1;  ++frameInd)
 	{
+		cout << "_________frame: " << frameInd << endl;
 		Mat frame;
 		if (trainingLogFile)
 		{
@@ -239,6 +252,7 @@ int main(int argc, char* argv[])
 			resize(frameOrig, frame, Size(conf.frameWidth, conf.frameHeight));
 			flip(frame, frame, 1);
 			frame.copyTo(result);
+			frame.copyTo(result_tmp);
 			if (doInitialise)
 			{
 				if (tracker.IsInitialised())
@@ -253,7 +267,7 @@ int main(int argc, char* argv[])
 			}
 			else if (!tracker.IsInitialised())
 			{
-				rectangle(result, initBB, CV_RGB(255, 255, 255));
+				rectangle(result, initBB, CV_RGB(255, 255, 255)); 
 			}
 		}
 		else
@@ -268,19 +282,17 @@ int main(int argc, char* argv[])
 			}
 			resize(frameOrig, frame, Size(conf.frameWidth, conf.frameHeight));
 			cvtColor(frame, result, CV_GRAY2RGB);
+			cvtColor(frame, result_tmp, CV_GRAY2RGB);
 		
 			if (trainingLogFile)
 			{
 				trainingLogFile << ">>frameLoop: " << frameInd << "-th " << endl;
 				trainingLogFile << "  frame name: " << imgPath << endl;
 				trainingLogFile << "  origImage size: " << frameOrig.size() << endl;
-				//trainingLogFile << "frameOrig rows: " << frameOrig.rows << endl;
-				//trainingLogFile << "frameOrig cols: " << frameOrig.cols << endl;
 				trainingLogFile << "  frame size: " << frame.size() << endl;
-				//trainingLogFile << "frame rows: " << frame.rows << endl;
-				//trainingLogFile << "frame cols: " << frame.cols << endl;
 			}
 
+			cout << "_________tracker.Initialise" << endl;
 			if (frameInd == startFrame)
 			{
 				tracker.Initialise(frame, initBB);
@@ -294,6 +306,8 @@ int main(int argc, char* argv[])
 				trainingLogFile << "================================================================================" << std::endl;
 				trainingLogFile << "Tracking for each frame: main->tracker.Track(frame) .." << std::endl;
 			}
+
+			cout << "	@@tracker.Track" << endl;
 			tracker.Track(frame);
 			
 			if (!conf.quietMode && conf.debugMode)
@@ -302,17 +316,24 @@ int main(int argc, char* argv[])
 			}
 			
 			rectangle(result, tracker.GetBB(), CV_RGB(0, 255, 0));
+			rectangle(result_tmp, tracker.GetBB_tmp(), CV_RGB(0, 255, 0));
 			
 			if (outFile)
 			{
 				const FloatRect& bb = tracker.GetBB();
 				outFile << bb.XMin()/scaleW << "," << bb.YMin()/scaleH << "," << bb.Width()/scaleW << "," << bb.Height()/scaleH << endl;
 			}
+			if (outFile_tmp)
+			{
+				const FloatRect& bb_tmp = tracker.GetBB_tmp();
+				outFile_tmp << bb_tmp.XMin()/scaleW << "," << bb_tmp.YMin()/scaleH << "," << bb_tmp.Width()/scaleW << "," << bb_tmp.Height()/scaleH << endl;
+			}
 		}
 		
 		if (!conf.quietMode)
 		{
 			imshow("result", result);
+			imshow("result_screening", result_tmp);
 			int key = waitKey(paused ? 0 : 1);
 			if (key != -1)
 			{
@@ -344,6 +365,10 @@ int main(int argc, char* argv[])
 	if (outFile.is_open())
 	{
 		outFile.close();
+	}
+	if (outFile_tmp.is_open())
+	{
+		outFile_tmp.close();
 	}
 
 	if (trainingLogFile.is_open())

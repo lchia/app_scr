@@ -53,12 +53,13 @@
 using namespace cv;
 using namespace std;
 using namespace Eigen;
-
+ 
 Tracker::Tracker(const Config& conf) :
 	m_config(conf),
 	m_initialised(false),
 	m_pLearner(0),
 	m_debugImage(2*conf.searchRadius+1, 2*conf.searchRadius+1, CV_32FC1),
+	m_debugImage_tmp(2*conf.searchRadius+1, 2*conf.searchRadius+1, CV_32FC1),
 	m_needsIntegralImage(false)
 {
 	Reset();
@@ -78,6 +79,7 @@ void Tracker::Reset()
 {
 	m_initialised = false;
 	m_debugImage.setTo(0);
+	m_debugImage_tmp.setTo(0);
 	if (m_pLearner) delete m_pLearner;
 	for (int i = 0; i < (int)m_features.size(); ++i)
 	{
@@ -143,6 +145,7 @@ void Tracker::Reset()
 void Tracker::Initialise(const cv::Mat& frame, FloatRect bb)
 {
 	m_bb = IntRect(bb);
+	m_bb_tmp = IntRect(bb);
 	ImageRep image(frame, m_needsIntegralImage, m_needsIntegralHist);
 	for (int i = 0; i < 1; ++i)
 	{
@@ -169,9 +172,21 @@ void Tracker::Track(const cv::Mat& frame)
 	
 	MultiSample sample(image, keptRects);
 	
+	cout << "		....compute scores" << endl;
 	vector<double> scores;
-	m_pLearner->Eval(sample, scores);
-	
+	vector<double> scores_tmp; 
+	m_pLearner->Eval(sample, scores, m_pLearner->psol_, scores_tmp); 
+
+			 
+	cout << "	rects Number: " << (int)keptRects.size() << endl;
+	int idx = 0;
+	for (int k=0; k<scores_tmp.size(); k++)
+	{	
+		if (scores_tmp[k] > 0) idx++;	
+	}
+	cout << "	Positive sample Number: " << idx << endl;
+
+
 	double bestScore = -DBL_MAX;
 	int bestInd = -1;
 	for (int i = 0; i < (int)keptRects.size(); ++i)
@@ -179,24 +194,44 @@ void Tracker::Track(const cv::Mat& frame)
 		if (scores[i] > bestScore)
 		{
 			bestScore = scores[i];
-			bestInd = i;
+			bestInd = i; 
 		}
 	}
-	
+	double bestScore_tmp = -DBL_MAX;
+	int bestInd_tmp = -1;
+	for (int i = 0; i < (int)keptRects.size(); ++i)
+	{		
+		if (scores_tmp[i] > bestScore)
+		{
+			bestScore_tmp = scores[i];
+			bestInd_tmp = i; 
+		}
+	}
+	cout << "....................................Tracker: Track...............1" << endl;
 	UpdateDebugImage(keptRects, m_bb, scores);
-	
+
+	cout << "....................................Tracker: Track...............2" << endl;
+	UpdateDebugImage_tmp(keptRects, m_bb_tmp, scores_tmp);
+
+	cout << "....................................Tracker: Track...............3" << endl;
 	if (bestInd != -1)
 	{
 		m_bb = keptRects[bestInd];
+		m_bb_tmp = keptRects[bestInd_tmp];
+
+	cout << "...................................Tracker: Track................4" << endl;
 		UpdateLearner(image);
+	cout << "...................................Tracker: Track................5" << endl;
 #if VERBOSE		
 		cout << "track score: " << bestScore << endl;
 #endif
 	}
 }
 
-void Tracker::UpdateDebugImage(const vector<FloatRect>& samples, const FloatRect& centre, const vector<double>& scores)
+void Tracker::UpdateDebugImage(const vector<FloatRect>& samples, 
+	const FloatRect& centre, const vector<double>& scores)
 {
+	cout << ".................................UpdateDebugImage: samples/scores: " << scores.size() << "/" << samples.size() << endl;
 	double mn = VectorXd::Map(&scores[0], scores.size()).minCoeff();
 	double mx = VectorXd::Map(&scores[0], scores.size()).maxCoeff();
 	m_debugImage.setTo(0);
@@ -208,10 +243,34 @@ void Tracker::UpdateDebugImage(const vector<FloatRect>& samples, const FloatRect
 	}
 }
 
+void Tracker::UpdateDebugImage_tmp(const vector<FloatRect>& samples, 
+	const FloatRect& centre, const vector<double>& scores_tmp)
+{
+	cout << ".................................UpdateDebugImage_tmp: samples/scores: " << scores_tmp.size() << "/" << samples.size() << endl;
+	//cout << "........Tracker::UpdateDebugImage_tmp->" << endl;
+	double mn = VectorXd::Map(&scores_tmp[0], scores_tmp.size()).minCoeff();
+	double mx = VectorXd::Map(&scores_tmp[0], scores_tmp.size()).maxCoeff();
+	//cout << "........->" << mn << "/" << mx << endl;
+	m_debugImage_tmp.setTo(0);
+	//cout << "@@m_debugImage_tmp" << endl;
+	for (int i = 0; i < (int)samples.size(); ++i)
+	{
+		int x = (int)(samples[i].XMin() - centre.XMin());
+		int y = (int)(samples[i].YMin() - centre.YMin());
+		//cout << "	...x/y: " << x << "/" << y << endl;
+		m_debugImage_tmp.at<float>(m_config.searchRadius+y, m_config.searchRadius+x) = (float)((scores_tmp[i]-mn)/(mx-mn));
+		//cout << "	...,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,," << endl;
+	}
+}
+
 void Tracker::Debug()
 {
+	cout << "Tracker::Debug" << endl;
 	imshow("tracker", m_debugImage);
+	cout << "	->screening" << endl;
+	imshow("tracker_screening", m_debugImage_tmp);
 	m_pLearner->Debug();
+	cout << "	->END." << endl;
 }
 
 void Tracker::UpdateLearner(const ImageRep& image)
@@ -233,5 +292,7 @@ void Tracker::UpdateLearner(const ImageRep& image)
 #endif
 		
 	MultiSample sample(image, keptRects);
+	cout << "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++" << keptRects.size() << " samples" << endl;
 	m_pLearner->Update(sample, 0);
+	cout << "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++" << keptRects.size() << " samples" << endl;
 }

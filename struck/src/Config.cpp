@@ -59,6 +59,7 @@ Config::Config(const std::string& path)
 		else if (name == "sequenceBasePath") iss >> sequenceBasePath;
 		else if (name == "sequenceName") iss >> sequenceName;
 		else if (name == "resultsPath") iss >> resultsPath;
+		else if (name == "resultsPath_tmp") iss >> resultsPath_tmp;
 		else if (name == "trainingLogPath") iss >> trainingLogPath;
 		else if (name == "frameWidth") iss >> frameWidth;
 		else if (name == "frameHeight") iss >> frameHeight;
@@ -116,6 +117,7 @@ void Config::SetDefaults()
 	sequenceBasePath = "";
 	sequenceName = "";
 	resultsPath = "";
+	resultsPath_tmp = "";
 	trainingLogPath= "";
 	
 	frameWidth = 320;
@@ -169,6 +171,7 @@ ostream& operator<< (ostream& out, const Config& conf)
 	out << "  sequenceBasePath   = " << conf.sequenceBasePath << endl;
 	out << "  sequenceName       = " << conf.sequenceName << endl;
 	out << "  resultsPath        = " << conf.resultsPath << endl;
+	out << "  resultsPath_tmp    = " << conf.resultsPath_tmp << endl;
 	out << "  trainingLogPath    = " << conf.trainingLogPath << endl;
 	out << "  frameWidth         = " << conf.frameWidth << endl;
 	out << "  frameHeight        = " << conf.frameHeight << endl;
